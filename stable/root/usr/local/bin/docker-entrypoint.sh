@@ -1,25 +1,28 @@
 #!/usr/bin/env bash
 
-# Init script for Pritunl Docker container
+# Init script for Pritunl Docker container with Cloudflare Warp
 # License: Apache-2.0
-# Github: https://github.com/goofball222/pritunl.git
-SCRIPT_VERSION="1.0.2"
-# Last updated date: 2022-12-20
+# Original Github: https://github.com/goofball222/pritunl.git
+# Warp Version: https://github.com/rafiibrahim8/pritunl-warp.git
+# Last updated date: 2025-03-21
+
+SCRIPT_VERSION="1.0.3"
+WARP_SLEEP="${WARP_SLEEP:-3}"
+ENABLE_WARP="${ENABLE_WARP:-no}"
 
 set -Eeuo pipefail
 
-if [ "${DEBUG}" == 'true' ];
-    then
-        set -x
+if [ "${DEBUG}" == 'true' ]; then
+    set -x
 fi
 
 log() {
-    echo "$(date -u +%FT$(nmeter -d0 '%3t' | head -n1)) <docker-entrypoint> $*"
+    echo "$(date -u +%FT) <docker-entrypoint> $*"
 }
 
 log "INFO - Script version ${SCRIPT_VERSION}"
 
-PRITUNL=/usr/bin/pritunl
+PRITUNL=/usr/local/bin/pritunl
 
 PRITUNL_OPTS="${PRITUNL_OPTS}"
 
@@ -73,10 +76,54 @@ idle_handler() {
     done
 }
 
+start_warp(){
+    add-hosts-ips.sh "$(echo "$MONGODB_URI" | awk -F'[/:]' '{print $4}')"
+    mkdir -p /run/dbus
+    if [ -f /run/dbus/pid ]; then
+        rm -f /run/dbus/pid
+    fi
+    dbus-daemon --config-file=/usr/share/dbus-1/system.conf
+    warp-svc --accept-tos &
+    # sleep to wait for the daemon to start, default 3 seconds
+    sleep "$WARP_SLEEP"
+    if [ ! -f /var/lib/cloudflare-warp/reg.json ]; then
+        if [ ! -f /var/lib/cloudflare-warp/mdm.xml ] || [ -n "$REGISTER_WHEN_MDM_EXISTS" ]; then
+            warp-cli --accept-tos registration new && log "Warp client registered!"
+            if [ -n "$WARP_LICENSE_KEY" ]; then
+                log "License key found, registering license..."
+                warp-cli --accept-tos registration license "$WARP_LICENSE_KEY" && log "Warp license registered!"
+            fi
+        fi
+    else
+        log "Warp client already registered, skip registration"
+    fi
+    warp-cli --accept-tos connect
+    sleep "$WARP_SLEEP"
+
+    log "[NAT] Enabling NAT..."
+    nft add table ip nat
+    nft add chain ip nat WARP_NAT { type nat hook postrouting priority 100 \; }
+    nft add rule ip nat WARP_NAT oifname "CloudflareWARP" masquerade
+    nft add table ip mangle
+    nft add chain ip mangle forward { type filter hook forward priority mangle \; }
+    nft add rule ip mangle forward tcp flags syn tcp option maxseg size set rt mtu
+
+    nft add table ip6 nat
+    nft add chain ip6 nat WARP_NAT { type nat hook postrouting priority 100 \; }
+    nft add rule ip6 nat WARP_NAT oifname "CloudflareWARP" masquerade
+    nft add table ip6 mangle
+    nft add chain ip6 mangle forward { type filter hook forward priority mangle \; }
+    nft add rule ip6 mangle forward tcp flags syn tcp option maxseg size set rt mtu
+}
+
 trap 'kill ${!}; exit_handler' SIGHUP SIGINT SIGQUIT SIGTERM
 
 if [[ "${@}" == 'pritunl' ]];
     then
+        if [[ -n "$ENABLE_WARP" && "${ENABLE_WARP,,}" =~ ^(1|yes|true|on)$ ]]; then
+            log "WARP is enabled!"
+            start_warp
+        fi
         pritunl_setup
 
         log "EXEC - ${PRITUNL} ${PRITUNL_OPTS}"
