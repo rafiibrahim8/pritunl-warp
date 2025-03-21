@@ -3,10 +3,10 @@
 
 
 
-NS ?= goofball222
+NS ?= rafiibrahim8
 
-IMAGE_NAME ?= pritunl
-CONTAINER_NAME ?= pritunl
+IMAGE_NAME ?= pritunl-warp
+CONTAINER_NAME ?= pritunl-warp
 CONTAINER_INSTANCE ?= default
 
 VCS_REF := $(strip $(shell git rev-parse --short HEAD))

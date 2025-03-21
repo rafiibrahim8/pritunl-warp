@@ -33,6 +33,12 @@ pritunl_setup() {
 
     ${PRITUNL} set app.web_systemd false
 
+    if [ "${KEEP_OPENVPN_PERMISSION}" == 'true' ]; then
+        ${PRITUNL} set vpn.drop_permissions false
+    else
+        ${PRITUNL} set vpn.drop_permissions true
+    fi
+
     if [ "${REVERSE_PROXY}" == 'true' ] && [ "${WIREGUARD}" == 'false' ]; then
             ${PRITUNL} set app.reverse_proxy true
             ${PRITUNL} set app.redirect_server false
@@ -102,14 +108,14 @@ start_warp(){
 
     log "[NAT] Enabling NAT..."
     nft add table ip nat
-    nft add chain ip nat WARP_NAT { type nat hook postrouting priority 100 \; }
+    nft add chain ip nat WARP_NAT { type nat hook postrouting priority -145 \; }
     nft add rule ip nat WARP_NAT oifname "CloudflareWARP" masquerade
     nft add table ip mangle
     nft add chain ip mangle forward { type filter hook forward priority mangle \; }
     nft add rule ip mangle forward tcp flags syn tcp option maxseg size set rt mtu
 
     nft add table ip6 nat
-    nft add chain ip6 nat WARP_NAT { type nat hook postrouting priority 100 \; }
+    nft add chain ip6 nat WARP_NAT { type nat hook postrouting priority -145 \; }
     nft add rule ip6 nat WARP_NAT oifname "CloudflareWARP" masquerade
     nft add table ip6 mangle
     nft add chain ip6 mangle forward { type filter hook forward priority mangle \; }
@@ -120,15 +126,18 @@ trap 'kill ${!}; exit_handler' SIGHUP SIGINT SIGQUIT SIGTERM
 
 if [[ "${@}" == 'pritunl' ]];
     then
-        if [[ -n "$ENABLE_WARP" && "${ENABLE_WARP,,}" =~ ^(1|yes|true|on)$ ]]; then
-            log "WARP is enabled!"
-            start_warp
-        fi
         pritunl_setup
 
         log "EXEC - ${PRITUNL} ${PRITUNL_OPTS}"
         exec 0<&-
         exec ${PRITUNL} ${PRITUNL_OPTS} &
+        if [[ -n "$ENABLE_WARP" && "${ENABLE_WARP,,}" =~ ^(1|yes|true|on)$ ]]; then
+            log "WARP is enabled!"
+            log "Sleeping 15 secs..."
+            sleep 15
+            start_warp
+        fi
+        log 'Calling idle_handler.....'
         idle_handler
     else
         log "EXEC - ${@}"
