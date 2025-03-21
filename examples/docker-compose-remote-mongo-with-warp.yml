@@ -1,0 +1,51 @@
+services:
+  pritunl:
+    image: rafiibrahim8/pritunl-warp:latest
+    container_name: pritunl
+    restart: unless-stopped
+    sysctls:
+      - net.ipv6.conf.all.disable_ipv6=0
+      - net.ipv4.conf.all.src_valid_mark=1
+      - net.ipv4.ip_forward=1
+      - net.ipv6.conf.all.forwarding=1
+      - net.ipv6.conf.all.accept_ra=2
+    volumes:
+      - type: bind
+        source: /etc/localtime
+        target: /etc/localtime
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: /dev/net/tun
+        target: /dev/net/tun
+        bind:
+          create_host_path: false
+    environment:
+      MONGODB_URI: "${MONGODB_URI:?MONGODB_URI is required}"
+      TZ: UTC
+      ENABLE_WARP: true
+    networks:
+      - vpn-network
+    ports:
+      - mode: ingress
+        target: "${VPN_UDP_PORT:-1194}"
+        published: "${VPN_UDP_PORT:-1194}"
+        protocol: "udp"
+        x-port-name: "OpenVPN UDP"
+      - mode: ingress
+        target: "${VPN_TCP_PORT:-1194}"
+        published: "${VPN_TCP_PORT:-1194}"
+        protocol: "tcp"
+        x-port-name: "OpenVPN TCP"
+      - mode: ingress
+        target: "443"
+        published: "${WEBSERVER_PORT:-8573}"
+        protocol: "tcp"
+        x-port-name: "Web UI"
+    cap_add:
+      - NET_ADMIN
+
+networks:
+  vpn-network:
+    name: vpn-network
