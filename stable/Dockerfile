@@ -17,7 +17,7 @@ RUN set -x \
     && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
         bash curl ca-certificates ipset iptables openssl openvpn procps python3-setuptools \
         tzdata wireguard-tools psmisc iproute2 net-tools gnupg \
-        dbus iputils-ping dnsutils \
+        dbus iputils-ping dnsutils jq \
     && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
         gcc lsb-release python3-dev \
     && curl -fsSL https://pkg.cloudflareclient.com/pubkey.gpg | gpg --yes --dearmor --output /usr/share/keyrings/cloudflare-warp-archive-keyring.gpg \
@@ -68,8 +68,8 @@ ENV \
     KEEP_OPENVPN_PERMISSION=false \
     ENABLE_WARP=false \
     WARP_DAEMON_STARTUP_WAIT=3 \
-    BEFORE_WARP_INIT_WAIT=15 \
-    WARP_LICENSE_KEY= \
+    BEFORE_WARP_INIT_WAIT=30 \
+    WARP_PLUS_KEY= \
     REGISTER_WHEN_MDM_EXISTS= 
 
 ENTRYPOINT ["docker-entrypoint.sh"]

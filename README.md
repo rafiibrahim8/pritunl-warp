@@ -123,7 +123,7 @@ services:
 | `WIREGUARD` | ***false*** | Set to *true*, Switches web interface back to port 443 and HTTPS if running wireguard with reverse-proxy (Traefik/nginx) |
 | `KEEP_OPENVPN_PERMISSION` | ***false*** | Set to *true*, to keep privileged (root) permission for OpenVPN |
 | `ENABLE_WARP` | ***false*** | Set to *true*, to enable Cloudflare Warp. When enabled traffic will be proxied through Warp |
-| `BEFORE_WARP_INIT_WAIT` | ***15*** | After OpenVPN has been started wait seconds before starting Warp |
+| `BEFORE_WARP_INIT_WAIT` | ***30*** | After OpenVPN has been started wait seconds before starting Warp |
 | `WARP_DAEMON_STARTUP_WAIT` | ***3*** | Wait seconds to Warp daemon to start |
 | `REGISTER_WHEN_MDM_EXISTS` | ***unset*** | If set, will register consumer account (WARP or WARP+, in contrast to Zero Trust) even when `mdm.xml` exists. You usually don't need this, as `mdm.xml` are usually used for Zero Trust. However, some users may want to adjust advanced settings in `mdm.xml` while still using consumer account |
 | `WARP_LICENSE_KEY` | ***unset*** | The license key of the WARP client, which is optional. If you have subscribed to WARP+ service, you can fill in the key in this environment variable. If you have not subscribed to WARP+ service, you can ignore this environment variable |

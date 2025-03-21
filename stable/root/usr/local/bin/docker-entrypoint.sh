@@ -93,10 +93,10 @@ start_warp(){
     if [ ! -f /var/lib/cloudflare-warp/reg.json ]; then
         if [ ! -f /var/lib/cloudflare-warp/mdm.xml ] || [ -n "$REGISTER_WHEN_MDM_EXISTS" ]; then
             warp-cli --accept-tos registration new && log "Warp client registered!"
-            if [ -n "$WARP_LICENSE_KEY" ]; then
-                log "License key found, registering license..."
-                warp-cli --accept-tos registration license "$WARP_LICENSE_KEY" && log "Warp license registered!"
-            fi
+        fi
+        if [ -n "$WARP_PLUS_KEY" ]; then
+            log "License key found, registering license..."
+            warp-cli --accept-tos registration license "$WARP_LICENSE_KEY" && log "Warp license registered!"
         fi
     else
         log "Warp client already registered, skip registration"
@@ -105,19 +105,43 @@ start_warp(){
     sleep "$WARP_DAEMON_STARTUP_WAIT"
 
     log "[NAT] Enabling NAT..."
+    
     nft add table ip nat
     nft add chain ip nat WARP_NAT { type nat hook postrouting priority -145 \; }
     nft add rule ip nat WARP_NAT oifname "CloudflareWARP" masquerade
     nft add table ip mangle
     nft add chain ip mangle forward { type filter hook forward priority mangle \; }
     nft add rule ip mangle forward tcp flags syn tcp option maxseg size set rt mtu
-
+    
+    ipv4_addresses=$(ip --json address | jq -r '.[] | select(.ifname | startswith("tun")) | .addr_info[] | select(.family == "inet") | "\(.local)/\(.prefixlen)"')
+    if [ -z "$ipv4_addresses" ]; then
+        log "No IPv4 addresses found on tun interfaces."
+    else
+        log "Found IPv4 addresses: $ipv4_addresses"
+        for addr in $ipv4_addresses; do
+            log "Adding nft rule for IP: $addr"
+            nft add rule ip nat WARP_NAT ip saddr "$addr" counter masquerade
+        done
+    fi
+    
     nft add table ip6 nat
     nft add chain ip6 nat WARP_NAT { type nat hook postrouting priority -145 \; }
     nft add rule ip6 nat WARP_NAT oifname "CloudflareWARP" masquerade
     nft add table ip6 mangle
     nft add chain ip6 mangle forward { type filter hook forward priority mangle \; }
     nft add rule ip6 mangle forward tcp flags syn tcp option maxseg size set rt mtu
+
+    ipv6_addresses=$(ip --json address | jq -r '.[] | select(.ifname | startswith("tun")) | .addr_info[] | select(.family == "inet6") | "\(.local)/\(.prefixlen)"')
+
+    if [ -z "$ipv6_addresses" ]; then
+        echo "No IPv6 addresses found on tun interfaces."
+    else
+        echo "Found IPv6 addresses: $ipv6_addresses"
+        for addr in $ipv6_addresses; do
+            echo "Adding nft rule for IP: $addr"
+            nft add rule ip6 nat WARP_NAT ip6 saddr "$addr" counter masquerade
+        done
+    fi
 }
 
 trap 'kill ${!}; exit_handler' SIGHUP SIGINT SIGQUIT SIGTERM
