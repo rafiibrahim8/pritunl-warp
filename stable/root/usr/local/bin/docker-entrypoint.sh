@@ -7,8 +7,6 @@
 # Last updated date: 2025-03-21
 
 SCRIPT_VERSION="1.0.3"
-WARP_SLEEP="${WARP_SLEEP:-3}"
-ENABLE_WARP="${ENABLE_WARP:-no}"
 
 set -Eeuo pipefail
 
@@ -91,7 +89,7 @@ start_warp(){
     dbus-daemon --config-file=/usr/share/dbus-1/system.conf
     warp-svc --accept-tos &
     # sleep to wait for the daemon to start, default 3 seconds
-    sleep "$WARP_SLEEP"
+    sleep "$WARP_DAEMON_STARTUP_WAIT"
     if [ ! -f /var/lib/cloudflare-warp/reg.json ]; then
         if [ ! -f /var/lib/cloudflare-warp/mdm.xml ] || [ -n "$REGISTER_WHEN_MDM_EXISTS" ]; then
             warp-cli --accept-tos registration new && log "Warp client registered!"
@@ -104,7 +102,7 @@ start_warp(){
         log "Warp client already registered, skip registration"
     fi
     warp-cli --accept-tos connect
-    sleep "$WARP_SLEEP"
+    sleep "$WARP_DAEMON_STARTUP_WAIT"
 
     log "[NAT] Enabling NAT..."
     nft add table ip nat
@@ -133,8 +131,8 @@ if [[ "${@}" == 'pritunl' ]];
         exec ${PRITUNL} ${PRITUNL_OPTS} &
         if [[ -n "$ENABLE_WARP" && "${ENABLE_WARP,,}" =~ ^(1|yes|true|on)$ ]]; then
             log "WARP is enabled!"
-            log "Sleeping 15 secs..."
-            sleep 15
+            log "Sleeping $BEFORE_WARP_INIT_WAIT secs..."
+            sleep "$BEFORE_WARP_INIT_WAIT"
             start_warp
         fi
         log 'Calling idle_handler.....'

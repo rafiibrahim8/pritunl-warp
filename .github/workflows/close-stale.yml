@@ -13,7 +13,7 @@ on:
 jobs:
   stale:
     name: Close Stale Issues
-    if: github.repository == 'goofball222/pritunl'
+    if: github.repository == 'rafiibrahim8/pritunl-warp'
 
     runs-on: ubuntu-latest
 

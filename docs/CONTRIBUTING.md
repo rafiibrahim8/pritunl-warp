@@ -49,7 +49,7 @@ a ticket number.
     (doc) Add documentation commit example to CONTRIBUTING
 
     There is no example for contributing a documentation commit
-    to the goofball222/pritunl repository. This is a problem because
+    to the rafiibrahim8/pritunl-warp repository. This is a problem because
     the contributor is left to assume how a commit of this nature
     may appear.
 

@@ -1,22 +1,22 @@
-# Pritunl Docker Container
+# Pritunl Docker Container with Cloudflare Warp
 
-[![Latest Build Status](https://github.com/goofball222/pritunl/actions/workflows/build-latest.yml/badge.svg)](https://github.com/goofball222/pritunl/actions/workflows/build-latest.yml) [![Docker Pulls](https://img.shields.io/docker/pulls/goofball222/pritunl.svg)](https://hub.docker.com/r/goofball222/pritunl/) [![Docker Stars](https://img.shields.io/docker/stars/goofball222/pritunl.svg)](https://hub.docker.com/r/goofball222/pritunl/) [![License](https://img.shields.io/github/license/goofball222/pritunl.svg)](https://github.com/goofball222/pritunl)
+[![Latest Build Status](https://github.com/rafiibrahim8/pritunl-warp/actions/workflows/build-latest.yml/badge.svg)](https://github.com/rafiibrahim8/pritunl-warp/actions/workflows/build-latest.yml) [![Docker Pulls](https://img.shields.io/docker/pulls/rafiibrahim8/pritunl-warp.svg)](https://hub.docker.com/r/rafiibrahim8/pritunl-warp/) [![Docker Stars](https://img.shields.io/docker/stars/rafiibrahim8/pritunl-warp.svg)](https://hub.docker.com/r/rafiibrahim8/pritunl-warp/) [![License](https://img.shields.io/github/license/rafiibrahim8/pritunl-warp.svg)](https://github.com/rafiibrahim8/pritunl-warp)
 
 ## Docker tags:
 | Tag | pritunl Version | Description | Release Date |
 | --- | :---: | --- | :---: |
-| [latest](https://github.com/goofball222/pritunl/blob/main/stable/Dockerfile) | [v1.32.4034.11](https://github.com/pritunl/pritunl/releases/tag/1.32.4034.11) | Latest stable release | 2024-09-27 |
+| [latest](https://github.com/rafiibrahim8/pritunl-warp/blob/main/stable/Dockerfile) | [v1.32.4034.11](https://github.com/pritunl/pritunl/releases/tag/1.32.4034.11) | Latest stable release | 2025-03-22 |
 
 ---
 
-* [Recent changes, see: GitHub CHANGELOG.md](https://github.com/goofball222/pritunl/blob/main/CHANGELOG.md)
-* [Report any bugs, issues or feature requests on GitHub](https://github.com/goofball222/pritunl/issues)
+* [Recent changes, see: GitHub CHANGELOG.md](https://github.com/rafiibrahim8/pritunl-warp/blob/main/CHANGELOG.md)
+* [Report any bugs, issues or feature requests on GitHub](https://github.com/rafiibrahim8/pritunl-warp/issues)
 
 ---
 
 ## Description
 
-[Pritunl](https://github.com/pritunl/pritunl) container built on Alpine Linux. Supports IPv6 and running behind a reverse proxy. This container requires an external Mongo DB and should be run via Docker Compose or other orchestration.
+[Pritunl](https://github.com/pritunl/pritunl) container built on Debian with Cloudflare Warp. Supports IPv6 and running behind a reverse proxy. This container requires an external Mongo DB and should be run via Docker Compose or other orchestration.
 
 ---
 
@@ -65,7 +65,7 @@ This may need to be performed after kernel upgrades and reboots on the Docker ho
 
 ---
 
-**Basic docker-compose.yml to launch a Mongo DB container instance, pritunl in standalone mode, and make the web and VPN ports accessible**
+**Basic docker-compose.yml to launch a Mongo DB container instance, pritunl with warp in standalone mode, and make the web and VPN ports accessible**
 
 ```bash
 
@@ -81,7 +81,7 @@ services:
       - ./db:/data/db
 
   pritunl:
-    image: goofball222/pritunl:latest
+    image: rafiibrahim8/pritunl-warp:latest
     container_name: pritunl
     hostname: pritunl
     depends_on:
@@ -102,12 +102,13 @@ services:
       - 1195:1195/udp
     environment:
       - TZ=UTC
+      - ENABLE_WARP=true
 
 ```
 
 ---
 
-**Other/extended docker-compose.yml examples see: https://github.com/goofball222/pritunl/tree/main/examples**
+**Other/extended docker-compose.yml examples see: https://github.com/rafiibrahim8/pritunl-warp/tree/main/examples**
 
 ---
 
@@ -120,6 +121,15 @@ services:
 | `PRITUNL_OPTS` | ***unset*** | Any additional custom run options for the container pritunl process
 | `REVERSE_PROXY` | ***false*** | Set to *true* to set the pritunl web interface to run in reverse-proxy mode (Traefik/nginx) |
 | `WIREGUARD` | ***false*** | Set to *true*, Switches web interface back to port 443 and HTTPS if running wireguard with reverse-proxy (Traefik/nginx) |
+| `KEEP_OPENVPN_PERMISSION` | ***false*** | Set to *true*, to keep privileged (root) permission for OpenVPN |
+| `ENABLE_WARP` | ***false*** | Set to *true*, to enable Cloudflare Warp. When enabled traffic will be proxied through Warp |
+| `BEFORE_WARP_INIT_WAIT` | ***15*** | After OpenVPN has been started wait seconds before starting Warp |
+| `WARP_DAEMON_STARTUP_WAIT` | ***3*** | Wait seconds to Warp daemon to start |
+| `REGISTER_WHEN_MDM_EXISTS` | ***unset*** | If set, will register consumer account (WARP or WARP+, in contrast to Zero Trust) even when `mdm.xml` exists. You usually don't need this, as `mdm.xml` are usually used for Zero Trust. However, some users may want to adjust advanced settings in `mdm.xml` while still using consumer account |
+| `WARP_LICENSE_KEY` | ***unset*** | The license key of the WARP client, which is optional. If you have subscribed to WARP+ service, you can fill in the key in this environment variable. If you have not subscribed to WARP+ service, you can ignore this environment variable |
+
+## Acknowledgement
+Integrating Warp part was heavily inspired form: [https://github.com/cmj2002/warp-docker](https://github.com/cmj2002/warp-docker)
 
 [//]: # (Licensed under the Apache 2.0 license)
-[//]: # (Copyright 2018 The Goofball - goofball222@gmail.com)
+[//]: # (Original file Copyright 2018 The Goofball - goofball222@gmail.com)

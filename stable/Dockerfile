@@ -65,7 +65,12 @@ ENV \
     PRITUNL_OPTS= \
     REVERSE_PROXY=false \
     WIREGUARD=false \
-    KEEP_OPENVPN_PERMISSION=false
+    KEEP_OPENVPN_PERMISSION=false \
+    ENABLE_WARP=false \
+    WARP_DAEMON_STARTUP_WAIT=3 \
+    BEFORE_WARP_INIT_WAIT=15 \
+    WARP_LICENSE_KEY= \
+    REGISTER_WHEN_MDM_EXISTS= 
 
 ENTRYPOINT ["docker-entrypoint.sh"]
 CMD ["pritunl"]
