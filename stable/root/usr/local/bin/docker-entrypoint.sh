@@ -81,7 +81,7 @@ idle_handler() {
 }
 
 start_warp(){
-    add-hosts-ips.sh "$(echo "$MONGODB_URI" | awk -F'[/:]' '{print $4}')"
+    add-hosts-ips.sh "$(echo "$MONGODB_URI" | sed -E 's|^mongodb(\+srv)?://([^@]*@)?([^/:?]+).*|\3|')"
     mkdir -p /run/dbus
     if [ -f /run/dbus/pid ]; then
         rm -f /run/dbus/pid
