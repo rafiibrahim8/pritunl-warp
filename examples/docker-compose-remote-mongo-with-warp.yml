@@ -25,6 +25,7 @@ services:
       MONGODB_URI: "${MONGODB_URI:?MONGODB_URI is required}"
       TZ: UTC
       ENABLE_WARP: true
+      SKIP_HOSTS_UPDATE: true
     networks:
       - vpn-network
     ports:

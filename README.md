@@ -127,6 +127,7 @@ services:
 | `WARP_DAEMON_STARTUP_WAIT` | ***3*** | Wait seconds to Warp daemon to start |
 | `REGISTER_WHEN_MDM_EXISTS` | ***unset*** | If set, will register consumer account (WARP or WARP+, in contrast to Zero Trust) even when `mdm.xml` exists. You usually don't need this, as `mdm.xml` are usually used for Zero Trust. However, some users may want to adjust advanced settings in `mdm.xml` while still using consumer account |
 | `USE_WARP_LICENSE` | ***unset*** | The license key of the WARP client, which is optional. If you have subscribed to WARP+ service, you can fill in the key in this environment variable. If you have not subscribed to WARP+ service, you can ignore this environment variable |
+| `SKIP_HOSTS_UPDATE` | ***false*** | By default mongo host is added to `/etc/hosts` when Warp is enabled to resolve dns on local mongo. As after connecting to Warp the Docker DNS doesn't work |
 
 ## Acknowledgement
 Integrating Warp part was heavily inspired form: [https://github.com/cmj2002/warp-docker](https://github.com/cmj2002/warp-docker)

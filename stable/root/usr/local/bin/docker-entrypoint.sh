@@ -81,14 +81,20 @@ idle_handler() {
 }
 
 start_warp(){
-    add-hosts-ips.sh "$(echo "$MONGODB_URI" | sed -E 's|^mongodb(\+srv)?://([^@]*@)?([^/:?]+).*|\3|')"
+    if [[ -n "$SKIP_HOSTS_UPDATE" && "${SKIP_HOSTS_UPDATE,,}" =~ ^(1|yes|true|on)$ ]]; then
+        log "Skipping hosts update..."
+    else
+        log "Updating hosts file..."
+        add-mongo-host-to-hosts.py -u "$MONGODB_URI"
+    fi
     mkdir -p /run/dbus
     if [ -f /run/dbus/pid ]; then
         rm -f /run/dbus/pid
     fi
     dbus-daemon --config-file=/usr/share/dbus-1/system.conf
     warp-svc --accept-tos &
-    # sleep to wait for the daemon to start, default 3 seconds
+    
+    # sleep to wait for the daemon to start
     sleep "$WARP_DAEMON_STARTUP_WAIT"
     if [ ! -f /var/lib/cloudflare-warp/reg.json ]; then
         if [ ! -f /var/lib/cloudflare-warp/mdm.xml ] || [ -n "$REGISTER_WHEN_MDM_EXISTS" ]; then
