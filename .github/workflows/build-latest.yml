@@ -27,6 +27,7 @@ jobs:
             ghcr.io/${{ github.repository }}
           tags: |
             type=raw,latest
+            type=raw,${{ steps.getargs.outputs.version }}
           labels: |
             org.opencontainers.image.vendor=Ibrahim Rafi - rafiibrahim8@hotmail.com
             org.opencontainers.image.title=Pritunl Server with Cloudflare Warp
