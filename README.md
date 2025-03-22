@@ -1,6 +1,6 @@
 # Pritunl Docker Container with Cloudflare Warp
 
-[![Latest Build Status](https://github.com/rafiibrahim8/pritunl-warp/actions/workflows/build-latest.yml/badge.svg)](https://github.com/rafiibrahim8/pritunl-warp/actions/workflows/build-latest.yml) [![Docker Pulls](https://img.shields.io/docker/pulls/rafiibrahim8/pritunl-warp.svg)](https://hub.docker.com/r/rafiibrahim8/pritunl-warp/) [![Docker Stars](https://img.shields.io/docker/stars/rafiibrahim8/pritunl-warp.svg)](https://hub.docker.com/r/rafiibrahim8/pritunl-warp/) [![License](https://img.shields.io/github/license/rafiibrahim8/pritunl-warp.svg)](https://github.com/rafiibrahim8/pritunl-warp)
+[![Build Status](https://github.com/rafiibrahim8/pritunl-warp/actions/workflows/build.yml/badge.svg)](https://github.com/rafiibrahim8/pritunl-warp/actions/workflows/build.yml) [![Docker Pulls](https://img.shields.io/docker/pulls/rafiibrahim8/pritunl-warp.svg)](https://hub.docker.com/r/rafiibrahim8/pritunl-warp/) [![Docker Stars](https://img.shields.io/docker/stars/rafiibrahim8/pritunl-warp.svg)](https://hub.docker.com/r/rafiibrahim8/pritunl-warp/) [![License](https://img.shields.io/github/license/rafiibrahim8/pritunl-warp.svg)](https://github.com/rafiibrahim8/pritunl-warp)
 
 ## Docker tags:
 | Tag | pritunl Version | Description | Release Date |
