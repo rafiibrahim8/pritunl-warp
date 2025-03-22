@@ -1,4 +1,4 @@
-name: Build Latest
+name: Build Docker Image
 
 on:
   workflow_dispatch:
@@ -7,7 +7,7 @@ on:
       - main
     paths:
       - stable/**
-      - .github/workflows/build-latest.yml
+      - .github/workflows/build.yml
 
 jobs:
   build:
