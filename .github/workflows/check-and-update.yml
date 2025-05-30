@@ -1,0 +1,46 @@
+name: Check and Update Version
+
+on:
+  schedule:
+    - cron: '0 0 * * *'
+
+jobs:
+  update-version:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+
+      - name: Get latest upstream and local version
+        id: checks
+        run: |
+          upstream_tag=$(curl -sSL https://api.github.com/repos/pritunl/pritunl/releases/latest | jq -r .tag_name)
+          if [ -z "$upstream_tag" ]; then
+            echo "Failed to fetch upstream tag"
+            exit 1
+          fi
+          local_version=$(cat stable/VERSION)
+          formatted_date=$(date -u +"%Y-%m-%d %H:%M (UTC)")
+          echo "Current datetime in UTC: $formatted_date"
+          echo "Latest upstream tag: $upstream_tag"
+          echo "Current local version: $local_version"
+          echo "upstream_tag=$upstream_tag" >> $GITHUB_OUTPUT
+          echo "local_version=$local_version" >> $GITHUB_OUTPUT
+          echo "formatted_date=$formatted_date" >> $GITHUB_OUTPUT
+
+      - name: Update files
+        if: steps.checks.outputs.upstream_tag != steps.checks.outputs.local_version
+        run: |
+          echo "${{ steps.checks.outputs.upstream_tag }}" > stable/VERSION
+          sed -i -E "s/[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+/${{ steps.checks.outputs.upstream_tag }}/g" README.md
+          sed -i -E "0,/[0-9]{4}-[0-9]{2}-[0-9]{2}[[:space:]]+[0-9]{2}:[0-9]{2}[[:space:]]+\(UTC\)/s//${{ steps.checks.outputs.formatted_date }}/" README.md
+
+      - name: Commit and push changes
+        if: steps.checks.outputs.upstream_tag != steps.checks.outputs.local_version
+        uses: EndBug/add-and-commit@v9
+        with:
+          default_author: github_actions
+          message: 'Update version to ${{ steps.checks.outputs.upstream_tag }}'
