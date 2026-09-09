@@ -1,30 +1,36 @@
-FROM golang:1.23-bookworm AS gobuiler
+FROM golang:1.25-bookworm AS gobuiler
+
+# GOTOOLCHAIN: the golang images set this to `local`, which makes go refuse
+# rather than fetch a newer toolchain. pritunl-dns@latest requiring go 1.25
+# broke this build for months; with `auto` the next such bump fetches instead
+# of failing.
 ENV \
     GOPATH="/go" \
     GOCACHE="/tmp/gocache" \
-    GO111MODULE=on
+    GO111MODULE=on \
+    GOTOOLCHAIN=auto
 
 RUN set -x \
     && go install github.com/pritunl/pritunl-dns@latest \
     && go install github.com/pritunl/pritunl-web@latest
 
-FROM python:3.11-slim-bookworm
+FROM python:3.12-slim-bookworm
 WORKDIR /opt/pritunl
 
 ARG VERSION
 RUN set -x \
     && apt-get update \
     && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-        bash curl ca-certificates ipset iptables openssl openvpn procps python3-setuptools \
+        bash curl ca-certificates ipset iptables openssl openvpn procps \
         tzdata wireguard-tools psmisc iproute2 net-tools gnupg \
         dbus iputils-ping dnsutils jq \
     && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-        gcc lsb-release python3-dev \
+        gcc libc6-dev lsb-release \
     && curl -fsSL https://pkg.cloudflareclient.com/pubkey.gpg | gpg --yes --dearmor --output /usr/share/keyrings/cloudflare-warp-archive-keyring.gpg \
     && echo "deb [signed-by=/usr/share/keyrings/cloudflare-warp-archive-keyring.gpg] https://pkg.cloudflareclient.com/ $(lsb_release -cs) main" | tee /etc/apt/sources.list.d/cloudflare-client.list \
     && apt-get update \
     && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends cloudflare-warp \
-    && rm -f /usr/lib/python3.*/EXTERNALLY-MANAGED \
+    && pip3 install --no-cache-dir setuptools==79.0.1 wheel \
     && cd /tmp \
     && curl -sSL https://github.com/pritunl/pritunl/archive/refs/tags/${VERSION}.tar.gz -o /tmp/${VERSION}.tar.gz \
     && tar -zxf /tmp/${VERSION}.tar.gz \
@@ -34,7 +40,7 @@ RUN set -x \
     && mkdir -p /var/lib/pritunl \
     && python3 setup.py install \
     && DEBIAN_FRONTEND=noninteractive apt-get remove --purge -y \
-        gcc lsb-release python3-dev \
+        gcc libc6-dev lsb-release \
     && apt-get autoremove --purge -y \
     && apt-get clean \
     && rm -rf /root/.cache/* /tmp/* /var/lib/apt/lists/*

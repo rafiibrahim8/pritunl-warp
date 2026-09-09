@@ -9,52 +9,158 @@ on:
       - stable/**
       - .github/workflows/build.yml
 
+permissions:
+  contents: read
+  packages: write
+
+env:
+  DOCKERHUB_IMAGE: ${{ github.repository }}
+  GHCR_IMAGE: ghcr.io/${{ github.repository }}
+
 jobs:
-  build:
+  # stable/VERSION is the source of truth for the tag. Read once here so the
+  # per-architecture jobs and the merge job cannot disagree about it.
+  prepare:
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
-      - name: Set up dynamic build ARGs
-        id: getargs
-        run: echo "version=$(cat ./stable/VERSION)" >> $GITHUB_OUTPUT
+        uses: actions/checkout@v7
+
+      - name: Read version
+        id: version
+        run: |
+          version=$(cat ./stable/VERSION)
+          if ! printf '%s' "$version" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::stable/VERSION is '$version', which is not a version"
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+  # One job per architecture on a runner of that architecture, so arm64 builds
+  # natively instead of under QEMU. Each job pushes only its own manifest,
+  # addressed by digest and untagged; the merge job binds them to the tags.
+  build:
+    needs: prepare
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-latest
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - name: Prepare platform slug
+        run: |
+          platform="${{ matrix.platform }}"
+          echo "PLATFORM_PAIR=${platform//\//-}" >> "$GITHUB_ENV"
+
+      - name: Checkout
+        uses: actions/checkout@v7
+
       - name: Set up Docker metadata
-        id: meta-docker
-        uses: docker/metadata-action@v5
+        id: meta
+        uses: docker/metadata-action@v6
         with:
-          images: |
-            ${{ github.repository }}
-            ghcr.io/${{ github.repository }}
-          tags: |
-            type=raw,${{ steps.getargs.outputs.version }}
-            type=raw,latest
+          images: ${{ env.GHCR_IMAGE }}
           labels: |
             org.opencontainers.image.vendor=Ibrahim Rafi - rafiibrahim8@hotmail.com
             org.opencontainers.image.title=Pritunl Server with Cloudflare Warp
             org.opencontainers.image.description=Pritunl Server with Cloudflare Warp
-            org.opencontainers.image.version=${{ steps.getargs.outputs.version }}
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+            org.opencontainers.image.version=${{ needs.prepare.outputs.version }}
+
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
+
       - name: Login to DockerHub
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.DOCKERHUB_PASSWORD }}
+
       - name: Login to GHCR
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v6
+
+      - name: Build and push by digest
+        id: build
+        uses: docker/build-push-action@v7
         with:
           context: ./stable
           file: ./stable/Dockerfile
-          platforms: linux/amd64,linux/arm64
-          push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.meta-docker.outputs.tags }}
-          labels: ${{ steps.meta-docker.outputs.labels }}
-          build-args: VERSION=${{ steps.getargs.outputs.version }}
+          platforms: ${{ matrix.platform }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: VERSION=${{ needs.prepare.outputs.version }}
+          # Pushed to both registries by digest and left untagged, so the merge
+          # job can point one tag at both architectures. The digest is content
+          # derived, so it is the same in both repositories.
+          outputs: type=image,"name=${{ env.DOCKERHUB_IMAGE }},${{ env.GHCR_IMAGE }}",push-by-digest=true,name-canonical=true,push=true
+          # Separate cache scopes: a shared one would have the two
+          # architectures overwrite each other's layers every run.
+          cache-from: type=gha,scope=${{ env.PLATFORM_PAIR }}
+          cache-to: type=gha,mode=max,scope=${{ env.PLATFORM_PAIR }}
+
+      - name: Export digest
+        run: |
+          mkdir -p /tmp/digests
+          digest="${{ steps.build.outputs.digest }}"
+          touch "/tmp/digests/${digest#sha256:}"
+
+      - name: Upload digest
+        uses: actions/upload-artifact@v7
+        with:
+          name: digests-${{ env.PLATFORM_PAIR }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  # Bind both digests to the tags as a single OCI image index, in each
+  # registry. Running last means a tag is never published unless both
+  # architectures built.
+  merge:
+    needs: [prepare, build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download digests
+        uses: actions/download-artifact@v8
+        with:
+          path: /tmp/digests
+          pattern: digests-*
+          merge-multiple: true
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Login to DockerHub
+        uses: docker/login-action@v4
+        with:
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.DOCKERHUB_PASSWORD }}
+
+      - name: Login to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create manifest lists and push
+        working-directory: /tmp/digests
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          for image in "$DOCKERHUB_IMAGE" "$GHCR_IMAGE"; do
+            echo "::group::$image"
+            docker buildx imagetools create \
+              -t "$image:$VERSION" \
+              -t "$image:latest" \
+              $(printf "$image@sha256:%s " *)
+            docker buildx imagetools inspect "$image:$VERSION"
+            echo "::endgroup::"
+          done
